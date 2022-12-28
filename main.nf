@@ -1,0 +1,86 @@
+#! /usr/bin/env nextflow
+
+nextflow.enable.dsl = 1
+
+/*
+ * pipeline input parameters
+ */
+params.outdir = "$PWD/results"
+params.indexDir = "$PWD/index"
+params.refGenome = "$PWD/GENCODE/GRCh38.primary_assembly.genome.fa"
+params.forRead = "$PWD/data/ER1_1.fastq"
+params.revRead = "$PWD/data/ER1_2.fastq"
+params.gtfFile = "$PWD/GENCODE/gencode.v39.primary_assembly.annotation.gtf"
+params.threads = 24
+
+/*Building index file for alignment using hisat2 */
+process buildindex {
+    publishDir params.indexDir, mode: 'copy'
+    echo true
+    input:
+    path refGenome from params.refGenome
+
+    output:
+    path 'index*' into index_ch
+
+    """
+    echo "Building Indices"
+    subread-buildindex ${refGenome} -o index
+    """
+}
+/*Aligning the reads to the index database */
+process align {
+    publishDir params.outdir, mode: 'copy'
+    echo true
+    input:
+    path forRead from params.forRead
+    path revRead from params.revRead
+    file indices from index_ch.collect()
+    each mode
+
+    output:
+    path "ER1.sam" into sam_ch
+
+    script:
+    index_base = indices[0].toString() - ~/.\d.ht2l?/
+
+    """
+    echo "Aligning Reads"
+   subread-align -T params.threads -t 0 -i ${index_base} -r ${forRead} -R ${revRead} -o ER1.sam
+    """
+
+}
+/*creating a binary compression of Sam file */
+process create_bam {
+    publishDir params.outdir, mode: 'copy'
+    echo true
+    input:
+    path samFile from sam_ch
+    each mode
+    output:
+    path "ER1.bam" into bam_ch
+
+    """
+    echo "Creating bam file"
+    samtools view -bh ${samFile} | samtools sort - -o ER1.bam; samtools index ER1.bam
+    """
+
+}
+/*Quantification from Bam files */
+process create_transcript {
+    publishDir params.outdir, mode: 'copy'
+    echo true
+    input:
+    path bamFile from bam_ch
+    path gtfFile from params.gtfFile
+    output:
+    path "final_transcript.gtf" into transcript_ch
+    path "sample.tsv" into tsv_ch
+    path "final_ref.gtf" into transcript_ref_ch
+    """
+    echo "Creating count matrix"
+    featureCounts -p --countReadPairs -t exon -g gene_id -a ${gtfFile} -0 counts.tsv ${bamFile}
+    """
+}
+
+
