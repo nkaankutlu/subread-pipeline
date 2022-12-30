@@ -11,7 +11,7 @@ params.refGenome = "$PWD/GENCODE/GRCh38.primary_assembly.genome.fa"
 params.forRead = "$PWD/data/ER1_1.fastq"
 params.revRead = "$PWD/data/ER1_2.fastq"
 params.gtfFile = "$PWD/GENCODE/gencode.v39.primary_assembly.annotation.gtf"
-params.threads = 24
+params.threads = 4
 
 /*Building index file for alignment using hisat2 */
 process buildindex {
@@ -25,7 +25,7 @@ process buildindex {
 
     """
     echo "Building Indices"
-    subread-buildindex ${refGenome} -o index
+    subread-buildindex ${refGenome} -o GRCh38
     """
 }
 /*Aligning the reads to the index database */
@@ -36,7 +36,6 @@ process align {
     path forRead from params.forRead
     path revRead from params.revRead
     file indices from index_ch.collect()
-    each mode
 
     output:
     path "ER1.sam" into sam_ch
@@ -46,7 +45,7 @@ process align {
 
     """
     echo "Aligning Reads"
-   subread-align -T params.threads -t 0 -i ${index_base} -r ${forRead} -R ${revRead} -o ER1.sam
+   subread-align -T $params.threads -t 0 -i ${index_base} -r ${forRead} -R ${revRead} -o ER1.sam
     """
 
 }
@@ -56,7 +55,6 @@ process create_bam {
     echo true
     input:
     path samFile from sam_ch
-    each mode
     output:
     path "ER1.bam" into bam_ch
 
@@ -74,9 +72,8 @@ process create_transcript {
     path bamFile from bam_ch
     path gtfFile from params.gtfFile
     output:
-    path "final_transcript.gtf" into transcript_ch
-    path "sample.tsv" into tsv_ch
-    path "final_ref.gtf" into transcript_ref_ch
+    path "counts.tsv" into tsv_ch
+    
     """
     echo "Creating count matrix"
     featureCounts -p --countReadPairs -t exon -g gene_id -a ${gtfFile} -0 counts.tsv ${bamFile}
