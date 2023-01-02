@@ -65,7 +65,7 @@ process create_bam {
 
 }
 /*Quantification from Bam files */
-process feature counts {
+process feature_counts {
     publishDir params.outdir, mode: 'copy'
     echo true
     input:
