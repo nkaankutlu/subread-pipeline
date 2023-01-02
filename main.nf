@@ -21,7 +21,7 @@ process buildindex {
     path refGenome from params.refGenome
 
     output:
-    path 'index*' into index_ch
+    path 'GRCh38*' into index_ch
 
     """
     echo "Building Indices"
@@ -41,11 +41,11 @@ process align {
     path "ER1.sam" into sam_ch
 
     script:
-    index_base = indices[0].toString() - ~/.\d.ht2l?/
+    index_base = indices[0].toString() - ~/.\d.GRCh38/
 
     """
     echo "Aligning Reads"
-   subread-align -T $params.threads -t 0 -i ${index_base} -r ${forRead} -R ${revRead} -o ER1.sam
+   subread-align -T $params.threads -t 0 -i ${index_base} -r ${forRead} -R ${revRead} -o ER1.bam
     """
 
 }
@@ -56,16 +56,16 @@ process create_bam {
     input:
     path samFile from sam_ch
     output:
-    path "ER1.bam" into bam_ch
+    path "ER1_sorted.bam" into bam_ch
 
     """
     echo "Creating bam file"
-    samtools view -bh ${samFile} | samtools sort - -o ER1.bam; samtools index ER1.bam
+    samtools view -bh ${samFile} | samtools sort - -o ER1_sorted.bam; samtools index ER1.bam
     """
 
 }
 /*Quantification from Bam files */
-process create_transcript {
+process feature counts {
     publishDir params.outdir, mode: 'copy'
     echo true
     input:
