@@ -38,7 +38,7 @@ process align {
     file indices from index_ch.collect()
 
     output:
-    path "ER1.sam" into sam_ch
+    path "ER1.bam" into sam_ch
 
     script:
     index_base = indices[0].toString() - ~/.\d.GRCh38/
