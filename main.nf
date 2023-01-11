@@ -6,7 +6,7 @@ nextflow.enable.dsl = 1
  * pipeline input parameters
  */
 params.outdir = "$PWD/results"
-params.indexDir = "$PWD/index"
+params.indexDir = "$PWD/GRCh38"
 params.refGenome = "$PWD/GENCODE/GRCh38.primary_assembly.genome.fa"
 params.forRead = "$PWD/data/ER1_1.fastq"
 params.revRead = "$PWD/data/ER1_2.fastq"
@@ -24,6 +24,8 @@ process buildindex {
     path 'GRCh38*' into index_ch
 
     """
+    mkdir GRCh38
+    
     echo "Building Indices"
     subread-buildindex ${refGenome} -o GRCh38
     """
@@ -35,17 +37,15 @@ process align {
     input:
     path forRead from params.forRead
     path revRead from params.revRead
-    file indices from index_ch.collect()
+    path GRCh38 from params.indexDir
 
     output:
     path "ER1.bam" into sam_ch
 
-    script:
-    index_base = indices[0].toString() - ~/.\d.GRCh38/
 
     """
     echo "Aligning Reads"
-   subread-align -T $params.threads -t 0 -i ${index_base} -r ${forRead} -R ${revRead} -o ER1.bam
+   subread-align -T $params.threads -t 0 -i ${GRCh38} -r ${forRead} -R ${revRead} -o ER1.bam
     """
 
 }
